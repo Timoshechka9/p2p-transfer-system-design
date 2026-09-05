@@ -118,3 +118,12 @@ If currency is not `RUB`:
 If the client requests a transfer that does not exist:
 - the system returns `404 Not Found`;
 - error code: `TRANSFER_NOT_FOUND`.
+
+## EC-13. Idempotency Key Reused With Different Data
+
+If an existing `Idempotency-Key` is reused with different transfer parameters:
+
+- a new transfer is not created;
+- the existing transfer is not modified;
+- the client receives `409 Conflict`;
+- error code: `IDEMPOTENCY_KEY_REUSED`.

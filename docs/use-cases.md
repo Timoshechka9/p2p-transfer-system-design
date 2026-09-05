@@ -26,9 +26,11 @@ Authenticated bank client.
 
 #### A1. Insufficient funds
 If the sender does not have enough funds:
-- the transfer is not completed;
-- the transfer receives status `FAILED`;
-- the client receives an error.
+
+- the request is rejected;
+- no transfer is created;
+- the client receives `409 Conflict`;
+- error code: `INSUFFICIENT_FUNDS`.
 
 #### A2. Invalid amount
 If `amount <= 0`:

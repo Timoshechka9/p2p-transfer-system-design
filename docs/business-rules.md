@@ -10,8 +10,9 @@
 - BR-06. The sender and recipient accounts must be different.
 - BR-07. The sender account must have sufficient funds for the transfer.
 - BR-08. A transfer must have a unique transfer identifier.
-- BR-09. Repeated requests with the same idempotency key must not create duplicate transfers.
-- BR-10. A successful transfer cannot be cancelled.
+- BR-09. Repeated requests with the same idempotency key and the same request data must not create duplicate transfers.
+- BR-10. Reusing an existing idempotency key with different transfer data must be rejected.
+- BR-11. A successful transfer cannot be cancelled.
 
 ## Transfer Status Rules
 

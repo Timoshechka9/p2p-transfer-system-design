@@ -1,187 +1,194 @@
 # P2P Transfer System Design
 
-A small pet project where I designed a simplified P2P transfer flow between clients of the same bank.
+Учебный проект по системному анализу сервиса P2P-переводов между клиентами одного банка.
 
-The goal was to practice the parts of system analysis that usually come together in one feature: requirements, business rules, API contract, database model, state transitions, failure scenarios and asynchronous events.
+Цель проекта — пройти полный цикл проектирования одной функции: от требований и бизнес-правил до API-контракта, модели данных, жизненного цикла перевода, обработки ошибок и асинхронных событий.
 
-## What is covered
+## Что реализовано в проекте
 
-The current version supports transfers between two accounts inside the same bank.
+В текущей версии рассматриваются переводы между двумя счетами внутри одного банка.
 
-The flow includes:
+Проект включает:
 
-- sender and recipient validation;
-- account ownership validation;
-- balance check;
-- transfer creation and status tracking;
-- protection against duplicate requests using an idempotency key;
-- transfer status history;
-- authentication using a bearer token;
-- basic failure scenarios;
-- publishing a transfer status change event.
+- проверку счёта отправителя и получателя;
+- проверку принадлежности счёта авторизованному клиенту;
+- проверку достаточности средств;
+- создание перевода и хранение его текущего статуса;
+- историю изменения статусов;
+- защиту от повторного создания перевода через `Idempotency-Key`;
+- авторизацию через bearer token;
+- основные ошибочные сценарии;
+- публикацию события при изменении статуса перевода.
 
-Only RUB transfers are considered.
+Поддерживаются только переводы в `RUB`.
 
-Out of scope:
+В проект не входят:
 
-- transfers to other banks;
-- currency conversion;
-- scheduled transfers;
-- cancellation of successful transfers;
-- credit funds.
+- переводы в другие банки;
+- конвертация валют;
+- запланированные переводы;
+- отмена успешно завершённого перевода;
+- использование кредитных средств.
 
-## Transfer flow
+## Общий сценарий перевода
 
-A successful transfer looks roughly like this:
+Упрощённо успешный перевод выглядит так:
 
 `Client → Transfer Service → Account Service → Transfer DB`
 
-The Transfer Service validates the request, checks the accounts and available funds through Account Service, creates a transfer and moves it through the following states:
+`Transfer Service` принимает запрос, проверяет данные, обращается в `Account Service` для проверки счетов и доступного баланса, после чего создаёт перевод.
+
+Жизненный цикл успешного перевода:
 
 `CREATED → PROCESSING → SUCCEEDED`
 
-If processing fails after the transfer has already been created:
+Если ошибка возникает после того, как перевод уже создан и начал обрабатываться:
 
 `CREATED → PROCESSING → FAILED`
 
-Validation errors such as invalid amount, unsupported currency or insufficient funds are handled before transfer creation.
+Ошибки валидации, например некорректная сумма, неподдерживаемая валюта или недостаточный баланс, обрабатываются до создания перевода.
 
-A high-level system overview is available in the [context diagram](diagrams/context.md).
+Общая схема системы находится в [context diagram](diagrams/context.md).
 
-More detailed flows are shown in the [sequence diagrams](diagrams/sequence.md) and [state diagram](diagrams/state.md).
+Более подробно процесс показан в [sequence diagrams](diagrams/sequence.md) и [state diagram](diagrams/state.md).
 
 ## API
 
-The service exposes two main operations:
+В сервисе предусмотрены две основные операции:
 
 ```http
 POST /api/v1/transfers
 GET /api/v1/transfers/{transferId}
 ```
 
-Requests are authenticated using a bearer token.
+Запросы выполняются от имени авторизованного пользователя.
 
-The authenticated user is determined by the system and is not passed explicitly in the transfer request.
+Идентификатор пользователя не передаётся в теле запроса — система определяет его из bearer token.
 
-`POST /transfers` also requires an `Idempotency-Key` header so that retrying the same client request does not create another transfer.
+Для `POST /transfers` используется заголовок:
 
-The full contract is described in [OpenAPI](api/openapi.yaml).
+```text
+Idempotency-Key
+```
 
-## Data model
+Он нужен для того, чтобы повторная отправка одного и того же запроса не создавала второй перевод.
 
-Transfer Service owns two main entities:
+Полное описание API находится в [OpenAPI specification](api/openapi.yaml).
 
-- `transfers` — current transfer data and status;
-- `transfer_status_history` — history of status changes.
+## Модель данных
 
-Account balances are deliberately not stored in this service.
+`Transfer Service` хранит две основные сущности:
 
-Account validation, ownership checks and balance checks are delegated to Account Service.
+- `transfers` — текущие данные и статус перевода;
+- `transfer_status_history` — история изменения статусов.
 
-The SQL schema is available in [schema.sql](db/schema.sql).
+Данные о счетах и балансах в этом сервисе не хранятся.
 
-I also added several example queries in [queries.sql](db/queries.sql).
+Проверка существования счёта, принадлежности счёта пользователю и доступного баланса выполняется через `Account Service`.
 
-## Design notes
+SQL-схема находится в [schema.sql](db/schema.sql).
 
-### Idempotency
+Примеры SQL-запросов — в [queries.sql](db/queries.sql).
 
-Each transfer request contains an `Idempotency-Key`.
+## Основные решения
 
-If the same user repeats the same request with the same key, a new transfer is not created and the existing transfer is returned.
+### Идемпотентность
 
-If the same key is reused with different transfer data, the request is rejected.
+Каждый запрос на создание перевода содержит `Idempotency-Key`.
 
-At the database level duplicate transfer creation is prevented by a unique constraint on:
+Если пользователь повторно отправляет тот же запрос с тем же ключом, новый перевод не создаётся — система возвращает уже существующий.
+
+Если тот же ключ используется с другими параметрами перевода, запрос отклоняется.
+
+На уровне БД защита от дублей реализуется ограничением:
 
 ```text
 (initiator_user_id, idempotency_key)
 ```
 
-### Account ownership
+### Проверка владельца счёта
 
-The client sends `senderAccountId`, but does not send the user ID that owns the account.
+Клиент передаёт `senderAccountId`, но не передаёт `userId`.
 
-The authenticated user is determined by the system, and Account Service is responsible for checking that the sender account actually belongs to this user.
+Авторизованный пользователь определяется системой, после чего `Account Service` проверяет, действительно ли счёт принадлежит ему.
 
-### Transfer states
+### Статусы перевода
 
-A valid transfer follows this lifecycle:
+В текущей версии поддерживаются четыре состояния:
+
+- `CREATED`
+- `PROCESSING`
+- `SUCCEEDED`
+- `FAILED`
+
+Корректные переходы:
 
 `CREATED → PROCESSING → SUCCEEDED`
 
-or:
+или:
 
 `CREATED → PROCESSING → FAILED`
 
-`SUCCEEDED` and `FAILED` are terminal states in the current version.
+`SUCCEEDED` и `FAILED` являются конечными состояниями.
 
-Validation errors are handled before transfer creation and therefore do not result in a `FAILED` transfer.
+### История статусов
 
-### Status history
+В таблице `transfers` хранится только текущий статус.
 
-The `transfers` table stores the current transfer status.
+В `transfer_status_history` сохраняется история всех изменений.
 
-The `transfer_status_history` table stores every status change.
+Изменение текущего статуса и добавление записи в историю должны выполняться в одной транзакции БД.
 
-A status update and the corresponding history record should be saved atomically in a single database transaction.
+### Частично выполненный перевод
 
-### Partial execution
-
-One of the problematic cases is:
+Один из важных проблемных сценариев:
 
 ```text
-sender debit succeeded
-recipient credit failed
+списание со счёта отправителя прошло успешно
+зачисление получателю завершилось ошибкой
 ```
 
-The transfer must not be marked as `SUCCEEDED` in this situation.
+В такой ситуации перевод нельзя помечать как `SUCCEEDED`.
 
-A production payment system would require retry or compensation logic.
+В реальной платёжной системе здесь потребовался бы механизм повторной попытки или компенсации.
 
-I did not implement a complete compensation mechanism here, but documented the problem in [edge cases](docs/edge-cases.md).
+Полная компенсационная логика в рамках проекта не реализована, но сценарий описан в [edge cases](docs/edge-cases.md).
 
-### Event publication
+### Публикация событий
 
-When a transfer changes status, Transfer Service may publish a `TRANSFER_STATUS_CHANGED` event.
-
-A possible problem is:
+При изменении статуса `Transfer Service` может публиковать событие:
 
 ```text
-transfer state saved successfully
-event publication failed
+TRANSFER_STATUS_CHANGED
 ```
 
-The transfer state should not be rolled back only because notification or event delivery failed.
+Его могут использовать, например:
 
-A production implementation could use the Transactional Outbox pattern for reliable event delivery.
+- `Notification Service`;
+- `Analytics Service`.
 
-The full outbox implementation is outside the scope of this project.
+Отдельная проблема возникает, если состояние перевода уже сохранено в БД, но публикация события завершилась ошибкой.
 
-## Repository navigation
+В production-системе для надёжной доставки событий можно использовать паттерн `Transactional Outbox`.
 
-- [Functional requirements](docs/requirements.md)
-- [Business rules](docs/business-rules.md)
-- [Use cases](docs/use-cases.md)
-- [Edge cases](docs/edge-cases.md)
+Полная реализация Outbox в проект не входит.
+
+## Навигация по проекту
+
+- [Функциональные требования](docs/requirements.md)
+- [Бизнес-правила](docs/business-rules.md)
+- [Use Cases](docs/use-cases.md)
+- [Edge Cases](docs/edge-cases.md)
 - [OpenAPI specification](api/openapi.yaml)
-- [Database schema](db/schema.sql)
-- [SQL examples](db/queries.sql)
-- [System context diagram](diagrams/context.md)
-- [Sequence diagrams](diagrams/sequence.md)
-- [Transfer state diagram](diagrams/state.md)
-- [Transfer status event example](events/transfer-status-changed.json)
+- [Схема БД](db/schema.sql)
+- [SQL-запросы](db/queries.sql)
+- [System Context Diagram](diagrams/context.md)
+- [Sequence Diagrams](diagrams/sequence.md)
+- [State Diagram](diagrams/state.md)
+- [Пример события](events/transfer-status-changed.json)
 
-## Event example
+## О проекте
 
-When a transfer changes its status, Transfer Service can publish a `TRANSFER_STATUS_CHANGED` event.
+Это учебный pet-project, созданный для практики системного анализа.
 
-This event could later be consumed by a notification or analytics service.
-
-An example payload is available in [transfer-status-changed.json](events/transfer-status-changed.json).
-
-## About
-
-This is an educational project created for practicing system analysis.
-
-The services, API and data used here are fictional and are not based on any real banking system. 
+Все сервисы, API, сущности и данные вымышлены и не относятся к реальным банковским системам.

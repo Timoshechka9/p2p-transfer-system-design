@@ -7,7 +7,7 @@ CREATE TABLE transfers (
         CHECK (amount > 0),
     currency CHAR(3) NOT NULL
         CHECK (currency = 'RUB'),
-    status VARCHAR(20) NOT NULL
+    status VARCHAR(20) NOT NULL DEFAULT 'CREATED'
         CHECK (
             status IN (
                 'CREATED',

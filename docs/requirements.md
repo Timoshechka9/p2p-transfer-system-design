@@ -14,3 +14,11 @@ The system provides P2P money transfers between clients of the same bank.
 - FR-06. The system shall validate that the sender has sufficient funds.
 - FR-07. The system shall create a transfer with a unique identifier.
 - FR-08. The system shall allow the client to retrieve the current transfer status.
+
+## Out of Scope
+
+- Transfers to other banks
+- Currency conversion
+- Scheduled transfers
+- Transfer cancellation after successful completion
+- Credit funds

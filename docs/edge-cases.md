@@ -53,8 +53,10 @@ If `senderAccountId = recipientAccountId`:
 ## EC-06. Insufficient Funds
 
 If the sender account balance is less than the transfer amount:
-- the transfer cannot be completed;
-- the client receives an error;
+
+- the request is rejected before transfer creation;
+- no transfer is stored;
+- the client receives `409 Conflict`;
 - error code: `INSUFFICIENT_FUNDS`.
 
 ---

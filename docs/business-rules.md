@@ -20,3 +20,4 @@
 - BR-12. A transfer being processed has status `PROCESSING`.
 - BR-13. A successfully completed transfer has status `SUCCEEDED`.
 - BR-14. A transfer that cannot be completed has status `FAILED`.
+- BR-15. Transfer status update and corresponding status history record must be saved atomically.

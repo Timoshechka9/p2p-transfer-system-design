@@ -35,6 +35,7 @@ sequenceDiagram
     TransferDB-->>TransferService: Status updated
 
     TransferService-->>Client: 201 Created + transferId + SUCCEEDED
+```
 
 ## Notes
 
@@ -56,4 +57,4 @@ sequenceDiagram
     AccountService-->>TransferService: Insufficient funds
 
     TransferService-->>Client: 409 INSUFFICIENT_FUNDS
-
+```

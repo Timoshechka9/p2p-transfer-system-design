@@ -1,1 +1,9 @@
-
+{
+  "eventId": "7d9c8c10-2d9f-4f9a-8f7a-3f8b3f2b4d10",
+  "eventType": "TRANSFER_STATUS_CHANGED",
+  "occurredAt": "2026-09-05T20:30:02Z",
+  "transferId": "33333333-3333-3333-3333-333333333333",
+  "previousStatus": "PROCESSING",
+  "currentStatus": "SUCCEEDED",
+  "initiatorUserId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+}

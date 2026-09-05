@@ -184,4 +184,4 @@ An example payload is available in [transfer-status-changed.json](events/transfe
 
 This is an educational project created for practicing system analysis.
 
-The services, API and data used here are fictional and are not based on any real banking system.
+The services, API and data used here are fictional and are not based on any real banking system. 

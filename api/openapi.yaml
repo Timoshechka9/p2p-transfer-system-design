@@ -1,1 +1,200 @@
+openapi: 3.0.3
 
+info:
+  title: P2P Transfer Service API
+  version: 1.0.0
+  description: API for P2P money transfers between clients of the same bank.
+
+servers:
+  - url: https://api.example.com/api/v1
+
+paths:
+
+  /transfers:
+    post:
+      summary: Create P2P transfer
+      description: Creates a new money transfer between two bank accounts.
+
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Unique key used to prevent duplicate transfers.
+          schema:
+            type: string
+            format: uuid
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransferRequest'
+
+      responses:
+
+        '201':
+          description: Transfer successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '404':
+          description: Sender or recipient account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '409':
+          description: Transfer cannot be processed because of current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  /transfers/{transferId}:
+    get:
+      summary: Get transfer
+      description: Returns information about a transfer.
+
+      parameters:
+        - name: transferId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+      responses:
+
+        '200':
+          description: Transfer information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+
+        '404':
+          description: Transfer not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+components:
+
+  schemas:
+
+    CreateTransferRequest:
+      type: object
+      required:
+        - senderAccountId
+        - recipientAccountId
+        - amount
+        - currency
+
+      properties:
+
+        senderAccountId:
+          type: string
+          format: uuid
+
+        recipientAccountId:
+          type: string
+          format: uuid
+
+        amount:
+          type: number
+          format: decimal
+          minimum: 0.01
+          example: 3000.00
+
+        currency:
+          type: string
+          enum:
+            - RUB
+          example: RUB
+
+
+    TransferResponse:
+      type: object
+      required:
+        - transferId
+        - senderAccountId
+        - recipientAccountId
+        - amount
+        - currency
+        - status
+        - createdAt
+
+      properties:
+
+        transferId:
+          type: string
+          format: uuid
+
+        senderAccountId:
+          type: string
+          format: uuid
+
+        recipientAccountId:
+          type: string
+          format: uuid
+
+        amount:
+          type: number
+          format: decimal
+          example: 3000.00
+
+        currency:
+          type: string
+          example: RUB
+
+        status:
+          type: string
+          enum:
+            - CREATED
+            - PROCESSING
+            - SUCCEEDED
+            - FAILED
+
+        failureCode:
+          type: string
+          nullable: true
+          example: INSUFFICIENT_FUNDS
+
+        createdAt:
+          type: string
+          format: date-time
+
+        updatedAt:
+          type: string
+          format: date-time
+
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+
+      properties:
+
+        code:
+          type: string
+          example: INVALID_AMOUNT
+
+        message:
+          type: string
+          example: Transfer amount must be greater than zero.

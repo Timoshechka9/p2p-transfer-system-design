@@ -127,3 +127,14 @@ If an existing `Idempotency-Key` is reused with different transfer parameters:
 - the existing transfer is not modified;
 - the client receives `409 Conflict`;
 - error code: `IDEMPOTENCY_KEY_REUSED`.
+
+## EC-14. Event Publication Failure
+
+If transfer state is successfully stored but the status event cannot be published:
+
+- the transfer state must not be rolled back only because notification failed;
+- the event should be published later using a reliable delivery mechanism.
+
+A production implementation could use the Transactional Outbox pattern.
+
+The full outbox implementation is outside the scope of this project.

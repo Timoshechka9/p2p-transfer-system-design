@@ -8,6 +8,9 @@ info:
 servers:
   - url: https://api.example.com/api/v1
 
+security:
+  - bearerAuth: []
+
 paths:
 
   /transfers:
@@ -47,6 +50,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+        '403':
+          description: Sender account does not belong to authenticated client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                
         '404':
           description: Sender or recipient account not found
           content:
@@ -84,6 +101,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/TransferResponse'
 
+        '401':
+          description: Authentication required
+
+        '403':
+          description: Client does not have access to this transfer
+          
         '404':
           description: Transfer not found
           content:
@@ -93,6 +116,13 @@ paths:
 
 
 components:
+
+  securitySchemes:
+
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 
   schemas:
 
@@ -116,8 +146,8 @@ components:
 
         amount:
           type: number
-          format: decimal
           minimum: 0.01
+          multipleOf: 0.01
           example: 3000.00
 
         currency:
@@ -137,6 +167,7 @@ components:
         - currency
         - status
         - createdAt
+        - updatedAt
 
       properties:
 
